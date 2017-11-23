@@ -7,107 +7,124 @@ var gulp = require('gulp'),
 	htmlMin = require('gulp-htmlmin'), //压缩html
 	changed = require('gulp-changed'), //检查改变状态  
 	less = require('gulp-less') //less转css  
-	del = require('del')
+	del = require('del')//文件删除
 	browserSync = require("browser-sync").create(); //浏览器实时刷新  
+	autoprefixer = require('gulp-autoprefixer'); //自动补齐前缀
 
 //删除dist下的所有文件  
 gulp.task('delete', function(cb) {
-	return del(['dist/*', '!dist/images'], cb);
+	return del(['dist/*'], cb);
 })
-var scriptsPath = 'src/js';
-function getFolders(dir) {
-	return fs.readdirSync(dir)
-		.filter(function(file) {
-			return fs.statSync(path.join(dir, file)).isDirectory();
-		});
-}
+
 //文件夹js
 gulp.task("script", function() {
-	
-	console.log(1)
-	
-	var folders = getFolders(scriptsPath);
-	var tasks = folders.map(function(folder) {
-		// 压缩
-		return gulp.src(path.join(scriptsPath, folder, '/*.js'))
-			.pipe(ugLify())
-			.pipe(gulp.dest("dist/js/" + folder))
-			.pipe(browserSync.reload({
-				stream: true
-			}));
-	});
-	return merge(tasks);
+	gulp.src('./src/js/**/*')
+	.pipe(gulp.dest('dist/js'))
+	.pipe(browserSync.reload({
+		stream: true
+	}));
 });
 
 // 压缩图片  
 gulp.task('images', function() {
-	gulp.src('./src/images/*.*')
-		.pipe(gulp.dest('dist/images'))
+	gulp.src('./src/images/**/*')
+	.pipe(gulp.dest('dist/images'))
+	.pipe(browserSync.reload({
+		stream: true
+	}));
+});
+
+//插件注入
+gulp.task('plugin', function() {
+	gulp.src('./src/plugin/**/*')
+	.pipe(gulp.dest('dist/plugin'))
+	.pipe(browserSync.reload({
+		stream: true
+	}));
 });
 
 //压缩html  
 gulp.task('html', function() {
 	var options = {
-		removeComments: true, //清除HTML注释  
-		collapseWhitespace: true, //压缩HTML  
+		removeComments: false, //清除HTML注释  
+		collapseWhitespace: false, //压缩HTML  
 		removeScriptTypeAttributes: false, //删除<script>的type="text/javascript"  
 		removeStyleLinkTypeAttributes: false, //删除<style>和<link>的type="text/css"  
 		minifyJS: true, //压缩页面JS  
 		minifyCSS: true //压缩页面CSS  
 	};
+	//删除文件
+	del(['dist/*.html']);
 	gulp.src('src/*.html')
-		.pipe(changed('dist', {
-			hasChanged: changed.compareSha1Digest
-		}))
-		.pipe(htmlMin(options))
-		.pipe(gulp.dest('dist'))
-		.pipe(browserSync.reload({
-			stream: true
-		}));
+//	.pipe(changed('dist', {
+//		hasChanged: changed.compareSha1Digest
+//	}))
+	.pipe(htmlMin(options))
+	.pipe(gulp.dest('dist'))
+	.pipe(browserSync.reload({
+		stream: true
+	}));
 });
-//实时编译less  
+//实时编译less
+//并且自动补齐
 gulp.task('less', function() {
-	gulp.src(['./src/css/*.less']) //多个文件以数组形式传入  
-		.pipe(changed('dist/css', {
-			hasChanged: changed.compareSha1Digest
-		}))
-		.pipe(less()) //编译less文件  
-		.pipe(cleanCSS()) //压缩新生成的css  
-		.pipe(gulp.dest('dist/css')) //将会在css下生成main.css  
-		.pipe(browserSync.reload({
-			stream: true
-		}));
-});
-
-/**
- * 压缩css
- */
-gulp.task('css', function() {
-	gulp.src(['./src/css/*.css']) //多个文件以数组形式传入  
-		.pipe(changed('dist/css', {
-			hasChanged: changed.compareSha1Digest
-		}))
-		.pipe(cleanCSS()) //压缩新生成的css  
-		.pipe(gulp.dest('dist/css')) //将会在css下生成main.css  
-		.pipe(browserSync.reload({
-			stream: true
-		}));
+	gulp.src(['./src/css/*.*'])
+	//自动补齐
+	.pipe(autoprefixer({
+		browsers: ['last 3 versions'],//兼容到ie9
+		cascade: true,
+		remove: true
+	}))
+	.pipe(less())//编译less文件  
+	.pipe(cleanCSS())
+	.pipe(gulp.dest('dist/css'))
+	.pipe(browserSync.reload({
+		stream:true
+	}));
+	
 });
 
 //启动热更新  
-gulp.task('serve', ['delete'], function() {
-	gulp.start('less', 'html', 'css', 'script', 'images');
+gulp.task('serve',['delete'], function() {
+	gulp.start('less', 'html', 'script', 'images', 'plugin');
 	browserSync.init({
 		port: 2017,
 		server: {
 			baseDir: ['dist']
 		}
 	});
-	gulp.watch('src/js/*/*.js', ['script']);
-	gulp.watch('src/css/*.less', ['less']);
-	gulp.watch('src/css/*.css', ['css']);
-	gulp.watch('src/*.html', ['html']);
-	gulp.watch('src/images/*.*', ['images']);
+	gulp.watch('src/js/**/*.js',function(){
+		del(['dist/js/**/*']).then(paths => {
+			console.log('js目录清理成功,正在重新编译:\n', paths.join('\n'));
+			gulp.run("script",function(){
+				console.log("js目录重新编译成功");
+			});
+		});
+	});
+	gulp.watch('src/css/*.*',function(){
+		del(['dist/css/*.css']).then(paths => {
+			console.log('css目录清理成功,正在重新编译:\n', paths.join('\n'));
+			gulp.run("less",function(){
+				console.log("css目录重新编译成功");
+			});
+		});
+	});
+	gulp.watch('src/*.html',function(){
+		del(['dist/*.html']).then(paths => {
+			console.log('html清理成功,正在重新编译:\n', paths.join('\n'));
+			gulp.run("html",function(){
+				console.log("html重新编译成功");
+			});
+		});
+	});
+	gulp.watch('src/images/**/*',function(){
+		del(['dist/images/**/*']).then(paths => {
+			console.log('images目录清理成功,正在重新编译:\n', paths.join('\n'));
+			gulp.run("images",function(){
+				console.log("images目录重新编译成功");
+			});
+		});
+	});
 });
 
 gulp.task('default', ['serve']);

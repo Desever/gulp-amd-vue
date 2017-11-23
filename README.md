@@ -15,3 +15,9 @@
  - 通过git命令clone当前项目（如何配置git环境，请百度）
  - 通过cd命令进入项目，npm install或者yarn或者cnpm install
  - 最后通过gulp启动项目
+
+3、主意事项
+
+ - 修改文件目录以后，或者pluin目录时候，请重启服务，此bug会在下一个版本修复
+ 
+
